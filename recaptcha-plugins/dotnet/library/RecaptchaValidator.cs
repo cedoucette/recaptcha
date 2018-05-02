@@ -25,6 +25,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Web;
+using System.Web.Script.Serialization;
+using System.Collections.Generic;
+using System.Collections;
 
 namespace Recaptcha
 {
@@ -34,12 +37,18 @@ namespace Recaptcha
     /// </summary>
     public class RecaptchaValidator
     {
-        private const string VerifyUrl = "http://www.google.com/recaptcha/api/verify";
+
+        // https://developers.google.com/recaptcha/docs/verify
+        private const string VerifyUrl = "https://www.google.com/recaptcha/api/siteverify";
+        // Recaptcha response properties
+        private const string Success = "success";
+        private const string ChallengeTimeStamp = "challenge_ts";
+        private const string Hostname = "hostname";
+        private const string ErrorCodes = "error-codes";
 
         private string privateKey;
         private string remoteIp;
 
-        private string challenge;
         private string response;
 
         private IWebProxy proxy;
@@ -72,12 +81,6 @@ namespace Recaptcha
             }
         }
 
-        public string Challenge
-        {
-            get { return this.challenge; }
-            set { this.challenge = value; }
-        }
-
         public string Response
         {
             get { return this.response; }
@@ -102,10 +105,9 @@ namespace Recaptcha
         {
             this.CheckNotNull(this.PrivateKey, "PrivateKey");
             this.CheckNotNull(this.RemoteIP, "RemoteIp");
-            this.CheckNotNull(this.Challenge, "Challenge");
             this.CheckNotNull(this.Response, "Response");
 
-            if (this.challenge == string.Empty || this.response == string.Empty)
+            if (this.response == string.Empty)
             {
                 return RecaptchaResponse.InvalidSolution;
             }
@@ -123,11 +125,10 @@ namespace Recaptcha
             request.ContentType = "application/x-www-form-urlencoded";
 
             string formdata = String.Format(
-                "privatekey={0}&remoteip={1}&challenge={2}&response={3}",
+                "secret={0}&response={1}&remoteip={2}",
                                     HttpUtility.UrlEncode(this.PrivateKey),
-                                    HttpUtility.UrlEncode(this.RemoteIP),
-                                    HttpUtility.UrlEncode(this.Challenge),
-                                    HttpUtility.UrlEncode(this.Response));
+                                    HttpUtility.UrlEncode(this.Response),
+                                    HttpUtility.UrlEncode(this.RemoteIP));
 
             byte[] formbytes = Encoding.ASCII.GetBytes(formdata);
 
@@ -136,7 +137,7 @@ namespace Recaptcha
                 requestStream.Write(formbytes, 0, formbytes.Length);
             }
 
-            string[] results;
+            Dictionary<String, Object> results = null;
 
             try
             {
@@ -144,7 +145,9 @@ namespace Recaptcha
                 {
                     using (TextReader readStream = new StreamReader(httpResponse.GetResponseStream(), Encoding.UTF8))
                     {
-                        results = readStream.ReadToEnd().Split(new string[] { "\n", "\\n" }, StringSplitOptions.RemoveEmptyEntries);
+                        String jsonResult = readStream.ReadToEnd();
+                        JavaScriptSerializer JavaScriptSerializer = new JavaScriptSerializer();
+                        results = JavaScriptSerializer.Deserialize<Dictionary<String, Object>>(jsonResult);
                     }
                 }
             }
@@ -153,16 +156,42 @@ namespace Recaptcha
                 EventLog.WriteEntry("Application", ex.Message, EventLogEntryType.Error);
                 return RecaptchaResponse.RecaptchaNotReachable;
             }
+            // TODO: Handle stream exceptions or deserialize exceptions
 
-            switch (results[0])
+            RecaptchaResponse result = null;
+            // Assuming there was no exception above - results should be a valid Dictionary (not null)
+            if (results != null) {
+                // The dictionary should always contain a Success property.
+                if (results.ContainsKey(Success)) {
+                    Object objSuccess = results[Success];
+                    if (objSuccess is Boolean) {
+                        Boolean success = (Boolean) objSuccess;
+                        if (success) {
+                            result = RecaptchaResponse.Valid;
+                        }
+                    }
+                }
+                // If there was no success field, or it wasn't a boolean, or it was false - extract the ErrorCodes (assuming they exist)
+                if (result == null && results.ContainsKey(ErrorCodes)) {
+                    Object objErrorCodes = results[ErrorCodes];
+                    if (objErrorCodes is ArrayList) {
+                        ArrayList errorCodes = (ArrayList)objErrorCodes;
+                        if (errorCodes.Count > 0) {
+                            String firstErrorCode = (String)errorCodes[0];
+                            result = new RecaptchaResponse(false, firstErrorCode);
+                        }
+                    }
+                }
+            }
+            
+            // At this point, result should either refer to a valid response, or an invalid one with an error code.
+            // Anything else (other than server being unreachable) is completely unexpected (and an exception is warranted).
+            if (result == null)
             {
-                case "true":
-                    return RecaptchaResponse.Valid;
-                case "false":
-                    return new RecaptchaResponse(false, results[1].Trim(new char[] { '\'' }));
-                default:
                     throw new InvalidProgramException("Unknown status response.");
             }
+
+            return result;
         }
     }
 }

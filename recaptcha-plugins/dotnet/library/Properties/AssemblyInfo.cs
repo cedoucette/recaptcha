@@ -39,4 +39,4 @@ using System.Web.UI;
 [assembly: AssemblyFileVersion("1.0.0.0")]
 
 [assembly: AllowPartiallyTrustedCallers]
-[assembly: SecurityRules(SecurityRuleSet.Level1)]
+//[assembly: SecurityRules(SecurityRuleSet.Level1)]

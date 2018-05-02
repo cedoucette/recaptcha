@@ -325,15 +325,10 @@ namespace Recaptcha
                         RecaptchaValidator validator = new RecaptchaValidator();
                         validator.PrivateKey = this.PrivateKey;
                         validator.RemoteIP = Page.Request.UserHostAddress;
-                        validator.Challenge = Context.Request.Form[RECAPTCHA_CHALLENGE_FIELD];
                         validator.Response = Context.Request.Form[RECAPTCHA_RESPONSE_FIELD];
                         validator.Proxy = this.proxy;
 
-                        if (validator.Challenge == null)
-                        {
-                            this.recaptchaResponse = RecaptchaResponse.InvalidChallenge;
-                        }
-                        else if (validator.Response == null)
+                        if (validator.Response == null)
                         {
                             this.recaptchaResponse = RecaptchaResponse.InvalidResponse;
                         }

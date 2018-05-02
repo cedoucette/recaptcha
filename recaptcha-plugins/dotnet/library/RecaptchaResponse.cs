@@ -27,7 +27,6 @@ namespace Recaptcha
     public class RecaptchaResponse
     {
         public static readonly RecaptchaResponse Valid = new RecaptchaResponse(true, string.Empty);
-        public static readonly RecaptchaResponse InvalidChallenge = new RecaptchaResponse(false, "Invalid reCAPTCHA request. Missing challenge value.");
         public static readonly RecaptchaResponse InvalidResponse = new RecaptchaResponse(false, "Invalid reCAPTCHA request. Missing response value.");
         public static readonly RecaptchaResponse InvalidSolution = new RecaptchaResponse(false, "The verification words are incorrect.");
         public static readonly RecaptchaResponse RecaptchaNotReachable = new RecaptchaResponse(false, "The reCAPTCHA server is unavailable.");

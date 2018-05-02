@@ -77,8 +77,7 @@ namespace Recaptcha
 
         public class CaptchaValidatorAttribute : ActionFilterAttribute
         {
-            private const string CHALLENGE_FIELD_KEY = "recaptcha_challenge_field";
-            private const string RESPONSE_FIELD_KEY = "recaptcha_response_field";
+            private const string RESPONSE_FIELD_KEY = "g-recaptcha-response";
 
             private RecaptchaResponse recaptchaResponse;
 
@@ -94,15 +93,10 @@ namespace Recaptcha
                     RecaptchaValidator validator = new Recaptcha.RecaptchaValidator();
                     validator.PrivateKey = RecaptchaControlMvc.PrivateKey;
                     validator.RemoteIP = filterContext.HttpContext.Request.UserHostAddress;
-                    validator.Challenge = filterContext.HttpContext.Request.Form[CHALLENGE_FIELD_KEY];
                     validator.Response = filterContext.HttpContext.Request.Form[RESPONSE_FIELD_KEY];
                     validator.Proxy = proxy;
 
-                    if (string.IsNullOrEmpty(validator.Challenge))
-                    {
-                        this.recaptchaResponse = RecaptchaResponse.InvalidChallenge;
-                    }
-                    else if (string.IsNullOrEmpty(validator.Response))
+                    if (string.IsNullOrEmpty(validator.Response))
                     {
                         this.recaptchaResponse = RecaptchaResponse.InvalidResponse;
                     }
